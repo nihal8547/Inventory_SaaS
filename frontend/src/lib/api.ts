@@ -1,6 +1,19 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+const getBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    // In browser: if not on local machine, always use relative /api/v1 through same-origin proxy
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      return "/api/v1";
+    }
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl && !envUrl.includes("localhost")) {
+      return envUrl;
+    }
+    return "/api/v1";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+};
 
 interface CacheEntry {
   data: any;
@@ -27,13 +40,22 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: API_URL,
+      baseURL: getBaseUrl(),
       headers: { "Content-Type": "application/json" },
       withCredentials: true,
     });
 
     this.client.interceptors.request.use((config) => {
       if (typeof window !== "undefined") {
+        // Guarantee production browser requests never attempt to call localhost
+        if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+          if (config.baseURL && config.baseURL.includes("localhost:3001")) {
+            config.baseURL = "/api/v1";
+          }
+          if (config.url && config.url.includes("localhost:3001")) {
+            config.url = config.url.replace(/https?:\/\/localhost:3001/g, "");
+          }
+        }
         const token = localStorage.getItem("access_token");
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;

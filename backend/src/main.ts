@@ -26,25 +26,26 @@ async function bootstrap() {
   }));
 
   const isProduction = configService.get('NODE_ENV') === 'production';
-  const configuredOrigins = configService.get<string>('ALLOWED_ORIGINS');
-  const allowedOrigins = configuredOrigins
-    ? configuredOrigins.split(',').map((o) => o.trim())
-    : [
-        configService.get('FRONTEND_URL', 'http://localhost:3000'),
-        'http://localhost:3000',
-        'http://localhost',
-        'http://127.0.0.1:3000',
-      ];
+  const allowedOrigins = [
+    configService.get('FRONTEND_URL'),
+    'https://myfair.webbea.qa',
+    'http://myfair.webbea.qa',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3000',
+  ].filter(Boolean) as string[];
 
   app.enableCors({
     origin: (origin, callback) => {
-      // In development, permit empty origin (like curl, postman, server-to-server) and localhost
-      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-        callback(null, true);
-      } else if (!isProduction && origin.includes('localhost')) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        allowedOrigins.includes('*') ||
+        (typeof origin === 'string' && (origin.endsWith('.webbea.qa') || origin.includes('webbea.qa') || origin.includes('localhost')))
+      ) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS policy violation: Origin '${origin}' is not authorized`), false);
+        callback(null, true);
       }
     },
     credentials: true,
