@@ -36,6 +36,17 @@ export class NotificationsService {
    * Synchronously checks for low-stock products to guarantee real-time operational alerts
    */
   async findAll(tenantId: string, userId?: string, query?: QueryNotificationsDto) {
+    if (!tenantId) {
+      return {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: Number(query?.limit) || 30,
+        totalPages: 0,
+        unreadCount: 0,
+      };
+    }
+
     // 1. Sync live inventory alerts (Low stock / Out of stock)
     await this.syncLowStockAlerts(tenantId);
 
@@ -84,8 +95,8 @@ export class NotificationsService {
       }),
     ]);
 
-    // If completely empty, generate an initial welcome notification
-    if (total === 0 && !query?.type && query?.isRead === undefined) {
+    // If completely empty and tenantId is present, generate an initial welcome notification
+    if (total === 0 && !query?.type && query?.isRead === undefined && tenantId) {
       const welcome = await this.notificationModel.create({
         data: {
           tenantId,
@@ -121,6 +132,7 @@ export class NotificationsService {
    * Get unread notification count
    */
   async getUnreadCount(tenantId: string, userId?: string): Promise<{ unreadCount: number }> {
+    if (!tenantId) return { unreadCount: 0 };
     const unreadCount = await this.notificationModel.count({
       where: {
         tenantId,
@@ -138,6 +150,7 @@ export class NotificationsService {
    * Mark a single notification as read
    */
   async markAsRead(tenantId: string, id: string) {
+    if (!tenantId) throw new NotFoundException('Tenant required');
     const existing = await this.notificationModel.findFirst({
       where: { id, tenantId },
     });
@@ -159,6 +172,7 @@ export class NotificationsService {
    * Mark all unread notifications as read for tenant/user
    */
   async markAllAsRead(tenantId: string, userId?: string) {
+    if (!tenantId) return { success: true, updatedCount: 0 };
     const result = await this.notificationModel.updateMany({
       where: {
         tenantId,

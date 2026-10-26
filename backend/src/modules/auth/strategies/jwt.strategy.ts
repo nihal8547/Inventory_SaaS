@@ -34,6 +34,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (user.isSuperAdmin) {
       if (requestedTenantId) {
         req.tenantId = requestedTenantId;
+      } else {
+        const primaryMembership = await this.prisma.membership.findFirst({
+          where: { userId: user.id, isActive: true },
+        });
+        if (primaryMembership) {
+          req.tenantId = primaryMembership.tenantId;
+        } else {
+          const firstTenant = await this.prisma.tenant.findFirst({
+            where: { isActive: true },
+          });
+          if (firstTenant) {
+            req.tenantId = firstTenant.id;
+          }
+        }
       }
     } else {
       if (requestedTenantId) {
