@@ -161,13 +161,37 @@ async function main() {
       update: { roleId: tu.role.id },
     });
   }
-  // Also add superAdmin to the tenant as Owner
+  // Also add testAdmin and superAdmin to the tenant as Owner
+  const testUserPasswordHash = await bcrypt.hash('test@123', 12);
+  const testAdmin = await prisma.user.upsert({
+    where: { email: 'test@admin.com' },
+    create: {
+      email: 'test@admin.com',
+      passwordHash: testUserPasswordHash,
+      firstName: 'Test',
+      lastName: 'Admin',
+      isSuperAdmin: true,
+      isActive: true,
+    },
+    update: {
+      passwordHash: testUserPasswordHash,
+      isSuperAdmin: true,
+      isActive: true,
+    },
+  });
+
+  await prisma.membership.upsert({
+    where: { userId_tenantId: { userId: testAdmin.id, tenantId: tenant.id } },
+    create: { userId: testAdmin.id, tenantId: tenant.id, roleId: ownerRole.id },
+    update: { roleId: ownerRole.id },
+  });
+
   await prisma.membership.upsert({
     where: { userId_tenantId: { userId: superAdmin.id, tenantId: tenant.id } },
     create: { userId: superAdmin.id, tenantId: tenant.id, roleId: ownerRole.id },
     update: { roleId: ownerRole.id },
   });
-  console.log('✓ Users & Role Memberships created');
+  console.log('✓ Users & Role Memberships created (including test@admin.com)');
 
   // 6. Multi Branches (Doha, Al Rayyan, Lusail)
   const branchDoha = await prisma.branch.upsert({
